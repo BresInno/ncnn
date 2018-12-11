@@ -86,27 +86,19 @@ int InnerProduct::load_model(const ModelBin& mb)
 
     if (weight_data_is_float32 && use_int8_inference)
     {
-        if (weight_data_int8_scale != 0.f && bottom_blob_int8_scale != 0.f)
-        {
-            // quantize weight to int8
-            ncnn::ParamDict pd;
-            pd.set(0, weight_data_int8_scale);// scale
+        // quantize weight to int8
+        ncnn::ParamDict pd;
+        pd.set(0, weight_data_int8_scale);// scale
 
-            quantize->load_param(pd);
+        quantize->load_param(pd);
 
-            Mat int8_weight_data;
-            quantize->forward(weight_data, int8_weight_data);
+        Mat int8_weight_data;
+        quantize->forward(weight_data, int8_weight_data);
 
-            if (int8_weight_data.empty())
-                return -100;
+        if (int8_weight_data.empty())
+            return -100;
 
-            weight_data = int8_weight_data;
-        }
-        else
-        {
-            // plain float32 weight, fallback to float32 inference
-            use_int8_inference = false;
-        }
+        weight_data = int8_weight_data;
     }
 
     return 0;
@@ -146,6 +138,7 @@ int InnerProduct::forward(const Mat& bottom_blob, Mat& top_blob, const Option& o
         for (int p=0; p<num_output; p++)
         {
             int sum = 0;
+            int* out = top_blob;
 
             // channels
             for (int q=0; q<channels; q++)
@@ -159,7 +152,7 @@ int InnerProduct::forward(const Mat& bottom_blob, Mat& top_blob, const Option& o
                 }
             }
 
-            top_blob[p] = sum;
+            out[p] = sum;
         }
 
         // dequantize, reverse scale inplace
