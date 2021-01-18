@@ -30,6 +30,9 @@ public:
 
     virtual int forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const;
 
+protected:
+    void cut_padding(const Mat& top_blob_bordered, Mat& top_blob, const Option& opt) const;
+
 public:
     // param
     int num_output;
@@ -39,12 +42,22 @@ public:
     int dilation_h;
     int stride_w;
     int stride_h;
-    int pad_w;
-    int pad_h;
+    int pad_left;
+    int pad_right;
+    int pad_top;
+    int pad_bottom;
+    int output_pad_right;
+    int output_pad_bottom;
+    int output_w;
+    int output_h;
     int bias_term;
 
     int weight_data_size;
     int group;
+
+    // 0=none 1=relu 2=leakyrelu 3=clip 4=sigmoid
+    int activation_type;
+    Mat activation_params;
 
     // model
     Mat weight_data;

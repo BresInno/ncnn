@@ -1,29 +1,72 @@
 sudo: false
-dist: trusty
 
 language: cpp
 
-compiler:
-  - g++
-
 addons:
   apt:
-    sources:
-    - ubuntu-toolchain-r-test
     packages:
-    - cmake
+      - cmake
+      - libprotobuf-dev
+      - protobuf-compiler
+      - libopencv-dev
+      - lcov
+
+matrix:
+  include:
+    - name: "linux-gcc-arm64"
+      os: linux
+      arch: arm64
+      dist: bionic
+      compiler: gcc
+      env:
+        - NAME=linux-gcc
+        - BUILD="mkdir build && cd build && cmake -DNCNN_BUILD_TESTS=ON .. && make -j2 && ctest --output-on-failure -j 2"
+
+    - name: "linux-clang-arm64"
+      os: linux
+      arch: arm64
+      dist: bionic
+      compiler: clang
+      env:
+        - NAME=linux-clang
+        - BUILD="mkdir build && cd build && cmake -DNCNN_BUILD_TESTS=ON .. && make -j2 && ctest --output-on-failure -j 2"
+
+    - name: "windows-vs2017"
+      os: windows
+      dist: 1803-containers
+      env:
+        - NAME=windows-vs2017
+        - BUILD="mkdir build && cd build && cmake -DNCNN_BUILD_TESTS=ON .. && cmake --build . --config Release && ctest -C Release --output-on-failure -j 2"
+
+    - name: "test-coverage-arm64"
+      os: linux
+      arch: arm64
+      dist: bionic
+      compiler: gcc
+      env:
+        - NAME=test-coverage-arm64
+        - BUILD="mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=debug -DNCNN_COVERAGE=ON -DNCNN_OPENMP=OFF -DNCNN_BUILD_TOOLS=OFF -DNCNN_BUILD_EXAMPLES=OFF -DNCNN_BUILD_TESTS=ON .. && make -j2 && ctest --output-on-failure -j 2 && lcov -d ./src -c -o lcov.info && lcov -r lcov.info '/usr/*' -o lcov.info && lcov --list lcov.info && bash <(curl -s https://codecov.io/bash) -f lcov.info"
+
+    - name: "linux-gcc-arm32"
+      os: linux
+      arch: arm64
+      dist: bionic
+      env:
+        - NAME=linux-gcc-arm32
+        - BEFORE_BUILD="sudo apt-get update && sudo dpkg --add-architecture armhf && sudo rm /etc/apt/sources.list.d/mongodb*.list && sudo apt-get update && sudo apt-get -y install crossbuild-essential-armhf libc6:armhf libstdc++-5-dev:armhf linux-libc-dev:armhf"
+        - BUILD="mkdir build && cd build && cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/arm-linux-gnueabihf.toolchain.cmake -DNCNN_BUILD_TOOLS=OFF -DNCNN_BUILD_EXAMPLES=OFF - -DNCNN_BUILD_TESTS=ON .. && make -j2 VERBOSE=1 && ctest --output-on-failure -j 2"
+
+    - name: "test-coverage-arm32"
+      os: linux
+      arch: arm64
+      dist: bionic
+      env:
+        - NAME=test-coverage-arm32
+        - BEFORE_BUILD="sudo apt-get update && sudo dpkg --add-architecture armhf && sudo rm /etc/apt/sources.list.d/mongodb*.list && sudo apt-get update && sudo apt-get -y install crossbuild-essential-armhf libc6:armhf libstdc++-5-dev:armhf linux-libc-dev:armhf"
+        - BUILD="mkdir build && cd build && cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/arm-linux-gnueabihf.toolchain.cmake -DCMAKE_BUILD_TYPE=debug -DNCNN_COVERAGE=ON -DNCNN_BUILD_TOOLS=OFF -DNCNN_BUILD_EXAMPLES=OFF - -DNCNN_BUILD_TESTS=ON .. && make -j2 && ctest --output-on-failure -j 2 && lcov -d ./src -c -o lcov.info && lcov -r lcov.info '/usr/*' -o lcov.info && lcov --list lcov.info && bash <(curl -s https://codecov.io/bash) -f lcov.info"
 
 before_install:
-  - pip install --user cpp-coveralls
-
-install:
-  - wget https://github.com/google/protobuf/archive/v3.5.1.tar.gz
-  - tar -xzvf v3.5.1.tar.gz
-  - pushd protobuf-3.5.1 && ./autogen.sh && ./configure --prefix=/usr && make -j2 && sudo make install && sudo ldconfig && popd
+  - eval "${BEFORE_BUILD}"
 
 script:
-  - cmake -DCOVERAGE=1 .
-  - make -j2
-
-after_success:
-  - coveralls --root . -E ".*build.*" -E ".*protobuf.*"
+  - eval "${BUILD}"
